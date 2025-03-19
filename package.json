@@ -7,8 +7,7 @@
     "dev:all": "node dev.js",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "vercel-build": "pip install -r api/requirements.txt"
+    "lint": "next lint"
   },
   "dependencies": {
     "autoprefixer": "^10.4.16",
