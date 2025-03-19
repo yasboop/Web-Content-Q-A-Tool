@@ -91,19 +91,26 @@ export default function Home() {
   }, [messages])
 
   /**
-   * Validate URL input and check site compatibility when URL changes
+   * Effect to check compatibility of entered URLs
+   * Assesses the first URL to determine likely extraction success
    */
   useEffect(() => {
     if (urls[0]) {
-      // Reset site compatibility status
+      // Reset compatibility status when URL changes
       setSiteCompatibility({ status: 'waiting', message: '' })
       
       try {
+        // Ensure URL has protocol, add https:// if missing
+        let urlToCheck = urls[0]
+        if (!urlToCheck.startsWith('http://') && !urlToCheck.startsWith('https://')) {
+          urlToCheck = 'https://' + urlToCheck
+        }
+        
         // Check URL format validity
-        new URL(urls[0])
+        new URL(urlToCheck)
         
         // Determine site compatibility based on the domain
-        const domain = new URL(urls[0]).hostname.toLowerCase()
+        const domain = new URL(urlToCheck).hostname.toLowerCase()
         
         if (domain.includes('wikipedia.org') || 
             domain.includes('bbc.com') || 
@@ -167,13 +174,21 @@ export default function Home() {
       return
     }
     
+    // Ensure all URLs have the protocol prefix
+    const formattedUrls = validUrls.map(url => {
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        return 'https://' + url;
+      }
+      return url;
+    });
+    
     setIsPreparing(true)
     setError('')
     
     try {
       // Prepare API request payload
       const payload = {
-        urls: validUrls,
+        urls: formattedUrls,
         session_id: sessionId || undefined
       }
       
