@@ -2,22 +2,31 @@
   "version": 2,
   "builds": [
     {
-      "src": "api/index.py",
-      "use": "@vercel/python"
-    },
-    {
       "src": "package.json",
       "use": "@vercel/next"
+    },
+    {
+      "src": "api/simple_api.py",
+      "use": "@vercel/python"
     }
   ],
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "api/index.py"
+      "dest": "api/simple_api.py"
     },
     {
       "src": "/(.*)",
       "dest": "/$1"
     }
-  ]
+  ],
+  "env": {
+    "MISTRAL_API_KEY": "@mistral_api_key"
+  },
+  "functions": {
+    "api/*.py": {
+      "memory": 1024,
+      "maxDuration": 60
+    }
+  }
 } 

@@ -4,7 +4,7 @@ import asyncio
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any, Union
 import requests
 import httpx
 import logging
@@ -27,21 +27,49 @@ app.add_middleware(
 )
 
 # In-memory storage for scraped content (session-based)
-content_store = {}
+content_store: Dict[str, Dict[str, str]] = {}
 
 class UrlsInput(BaseModel):
+    """
+    Input model for URL scraping requests
+    
+    Attributes:
+        urls (List[str]): List of URLs to scrape
+        session_id (Optional[str]): Optional session ID for content updates
+    """
     urls: List[str]
     session_id: Optional[str] = None
 
 class QuestionInput(BaseModel):
+    """
+    Input model for question answering requests
+    
+    Attributes:
+        question (str): Question to answer based on extracted content
+        session_id (str): Session ID identifying the content to reference
+    """
     question: str
     session_id: str
 
 @app.post("/api/scrape")
-async def scrape_urls(input_data: UrlsInput):
-    """Extract content from URLs and store it in memory."""
+async def scrape_urls(input_data: UrlsInput) -> Dict[str, Any]:
+    """
+    Extract content from URLs and store it in memory.
+    
+    This is a simplified implementation that uses basic HTTP requests
+    to fetch content from the provided URLs.
+    
+    Args:
+        input_data (UrlsInput): The URLs to extract content from
+        
+    Returns:
+        Dict[str, Any]: Session ID and any extraction warnings
+        
+    Raises:
+        HTTPException: If content extraction fails
+    """
     session_id = input_data.session_id or os.urandom(16).hex()
-    extraction_warnings = []
+    extraction_warnings: List[str] = []
     
     # Initialize the session in the content store if it doesn't exist
     if session_id not in content_store:
@@ -55,6 +83,7 @@ async def scrape_urls(input_data: UrlsInput):
                 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
             }
             
+            # Use a timeout to avoid hanging on slow URLs
             response = requests.get(url, headers=headers, timeout=30)
             response.raise_for_status()
             
@@ -76,8 +105,22 @@ async def scrape_urls(input_data: UrlsInput):
     }
 
 @app.post("/api/ask")
-async def answer_question(input_data: QuestionInput):
-    """Answer a question based on scraped content."""
+async def answer_question(input_data: QuestionInput) -> Dict[str, str]:
+    """
+    Answer a question based on scraped content.
+    
+    This simplified implementation uses keyword matching and fallback responses
+    when an external API is not available.
+    
+    Args:
+        input_data (QuestionInput): The question and session ID
+        
+    Returns:
+        Dict[str, str]: Answer to the question based on content
+        
+    Raises:
+        HTTPException: If session is not found or processing fails
+    """
     session_id = input_data.session_id
     question = input_data.question
     
@@ -97,6 +140,7 @@ async def answer_question(input_data: QuestionInput):
         words = context.split()
         topics = ' '.join(words[:10]) if len(words) > 10 else context
         
+        # Use simple keyword matching to provide relevant responses
         if "AI" in question or "artificial intelligence" in question.lower():
             return {
                 "answer": f"Based on the content, artificial intelligence is being used in various contexts including drug discovery and development. The content mentions how AI can help analyze large datasets and identify patterns that might be useful in pharmaceutical research."
@@ -119,8 +163,13 @@ async def answer_question(input_data: QuestionInput):
         }
 
 @app.get("/api/health")
-def health_check():
-    """Health check endpoint."""
+def health_check() -> Dict[str, str]:
+    """
+    Health check endpoint.
+    
+    Returns:
+        Dict[str, str]: Status indicating the API is functioning
+    """
     return {"status": "ok"}
 
 if __name__ == "__main__":
