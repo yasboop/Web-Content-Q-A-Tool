@@ -181,4 +181,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - [FastAPI](https://fastapi.tiangolo.com)
 - [Mistral AI](https://mistral.ai)
 - [TailwindCSS](https://tailwindcss.com)
-- [Playwright](https://playwright.dev) 
+- [Playwright](https://playwright.dev)
