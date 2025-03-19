@@ -399,7 +399,7 @@ export default function Home() {
                     {urls.map((url, index) => (
                       <div key={index} className="relative">
                         <input
-                          type="url"
+                          type="text"
                           ref={index === 0 ? urlInputRef : null}
                           value={url}
                           onChange={(e) => updateUrl(index, e.target.value)}
