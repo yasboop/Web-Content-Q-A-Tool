@@ -16,6 +16,6 @@
     }
   ],
   "env": {
-    "MISTRAL_API_KEY": "@mistral_api_key"
+    "MISTRAL_API_KEY": "${MISTRAL_API_KEY}"
   }
 } 
