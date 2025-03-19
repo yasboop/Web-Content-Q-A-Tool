@@ -8,6 +8,7 @@ from typing import List, Dict, Optional, Any, Union
 import requests
 import httpx
 import logging
+import traceback
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, 
@@ -137,20 +138,50 @@ async def answer_question(input_data: QuestionInput) -> Dict[str, str]:
     # Try to connect to Mistral API
     try:
         logger.info("Attempting to connect to Mistral AI API")
+        
+        # First try to get API key from environment variable
         mistral_api_key = os.environ.get("MISTRAL_API_KEY")
         
+        # Fall back to a direct key if needed - ONLY FOR DEVELOPMENT!
+        # In production, always use environment variables for security
         if not mistral_api_key:
-            logger.error("MISTRAL_API_KEY environment variable not found!")
+            logger.warning("MISTRAL_API_KEY environment variable not found, trying direct key")
+            # You can set a fallback key here for testing only
+            # mistral_api_key = "your-api-key-here"  # NEVER commit this to Git!
+        
+        if not mistral_api_key:
+            logger.error("No Mistral API key available from any source!")
             raise ValueError("Missing Mistral API key")
-            
-        logger.info(f"API Key available (first 4 chars): {mistral_api_key[:4]}...")
+        
+        # Log key length and prefix for debugging (don't log full key!)    
+        logger.info(f"API Key length: {len(mistral_api_key)}, prefix: {mistral_api_key[:4]}...")
         
         # Import here to avoid errors if package isn't available
-        from mistralai.client import MistralClient
-        from mistralai.models.chat_completion import ChatMessage
+        try:
+            from mistralai.client import MistralClient
+            from mistralai.models.chat_completion import ChatMessage
+            logger.info("Successfully imported Mistral packages")
+        except ImportError as e:
+            logger.error(f"Failed to import Mistral packages: {str(e)}")
+            raise
         
-        # Initialize Mistral client
-        client = MistralClient(api_key=mistral_api_key)
+        # Initialize Mistral client with full error handling
+        try:
+            logger.info("Initializing Mistral client")
+            client = MistralClient(api_key=mistral_api_key)
+            logger.info("Mistral client initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize Mistral client: {str(e)}")
+            raise
+        
+        # Get available models for debugging
+        try:
+            logger.info("Listing available Mistral models")
+            models = client.list_models()
+            logger.info(f"Available models: {[model.id for model in models.data]}")
+        except Exception as e:
+            logger.error(f"Failed to list models: {str(e)}")
+            # Don't raise here, try to continue with a default model
         
         # Create messages for the chat
         messages = [
@@ -158,38 +189,65 @@ async def answer_question(input_data: QuestionInput) -> Dict[str, str]:
             ChatMessage(role="user", content=f"Here is some content to analyze:\n\n{context}\n\nBased on this content, please answer the following question: {question}")
         ]
         
-        # Call Mistral API
+        # Call Mistral API - use a more powerful model
         logger.info("Sending request to Mistral API")
-        chat_response = client.chat(
-            model="mistral-small-latest",
-            messages=messages,
-            max_tokens=500
-        )
+        try:
+            # Try mistral-large model first (better capabilities)
+            chat_response = client.chat(
+                model="mistral-large-latest",  # Using a more powerful model
+                messages=messages,
+                max_tokens=500
+            )
+            logger.info("Received successful response from Mistral API (large model)")
+        except Exception as large_model_error:
+            logger.warning(f"Failed with large model: {str(large_model_error)}, trying medium model")
+            try:
+                # Fall back to medium model
+                chat_response = client.chat(
+                    model="mistral-medium",
+                    messages=messages,
+                    max_tokens=500
+                )
+                logger.info("Received successful response from Mistral API (medium model)")
+            except Exception as medium_model_error:
+                logger.warning(f"Failed with medium model: {str(medium_model_error)}, trying small model")
+                # Fall back to small model as last resort
+                chat_response = client.chat(
+                    model="mistral-small-latest",
+                    messages=messages,
+                    max_tokens=500
+                )
+                logger.info("Received successful response from Mistral API (small model)")
         
         # Extract and return the answer
         answer = chat_response.choices[0].message.content
         return {"answer": answer}
         
     except Exception as e:
+        # Detailed error logging
         logger.error(f"Error using Mistral API: {str(e)}")
+        logger.error(f"Error type: {type(e).__name__}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
         
         # Simple content-based response without calling Mistral API
         words = context.split()
         topics = ' '.join(words[:10]) if len(words) > 10 else context
         
+        error_details = f"[DEBUG: Error type: {type(e).__name__}, Message: {str(e)}]"
+        
         # Use simple keyword matching to provide relevant responses
         if "AI" in question or "artificial intelligence" in question.lower():
             return {
-                "answer": f"Based on the content, artificial intelligence is being used in various contexts including drug discovery and development. The content mentions how AI can help analyze large datasets and identify patterns that might be useful in pharmaceutical research. [DEBUG: Mistral API error: {str(e)}]"
+                "answer": f"Based on the content, artificial intelligence is being used in various contexts including drug discovery and development. The content mentions how AI can help analyze large datasets and identify patterns that might be useful in pharmaceutical research. {error_details}"
             }
         elif "drug" in question.lower():
             return {
-                "answer": f"The content discusses various aspects of drug discovery and pharmaceutical research. It appears to cover topics related to how modern approaches including AI and machine learning are being applied to develop new medications more efficiently. [DEBUG: Mistral API error: {str(e)}]"
+                "answer": f"The content discusses various aspects of drug discovery and pharmaceutical research. It appears to cover topics related to how modern approaches including AI and machine learning are being applied to develop new medications more efficiently. {error_details}"
             }
         else:
             # Basic fallback that mentions the content topic
             return {
-                "answer": f"Based on the extracted content, I can see information about {topics}... To provide a more detailed answer about '{question}', I would need to analyze the full content with a working AI model. [DEBUG: Mistral API error: {str(e)}]"
+                "answer": f"Based on the extracted content, I can see information about {topics}... To provide a more detailed answer about '{question}', I would need to analyze the full content with a working AI model. {error_details}"
             }
 
 @app.get("/api/health")
