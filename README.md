@@ -2,8 +2,6 @@
 
 A web application that allows users to ingest content from multiple URLs and ask questions about that content. The application uses Next.js for the frontend, FastAPI for the backend, and Mistral AI for generating answers based only on the ingested content.
 
-![AiSensy Content Intelligence](https://i.imgur.com/your-screenshot-link.png)
-
 ## Features
 
 - **Multi-URL Content Ingestion**: Input one or multiple webpage URLs to analyze
@@ -12,12 +10,13 @@ A web application that allows users to ingest content from multiple URLs and ask
 - **Modern UI**: Clean, responsive interface built with Next.js and TailwindCSS
 - **No Persistent Storage**: Content is stored in-memory for the session only
 - **Dark/Light Theme**: Toggle between light and dark modes for comfortable viewing
+- **Local Development**: Easily run the entire application locally with a simple setup
 
 ## Tech Stack
 
 - **Frontend**: Next.js with React, TailwindCSS for styling
 - **Backend**: FastAPI (Python) with httpx for async HTTP requests
-- **Content Extraction**: Beautiful Soup and Playwright for handling dynamic content
+- **Content Extraction**: Beautiful Soup for HTML parsing
 - **AI Integration**: Mistral AI API for content-based question answering
 - **Development**: Unified development environment with concurrent frontend/backend servers
 
@@ -27,14 +26,12 @@ A web application that allows users to ingest content from multiple URLs and ask
 - Python (v3.8+)
 - Mistral AI API key (obtainable from [Mistral AI Platform](https://console.mistral.ai/))
 
-## Installation
-
-### Local Setup
+## Installation and Local Setup
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/web-content-qa.git
-   cd web-content-qa
+   git clone https://github.com/yasboop/Web-Content-QA-Tool.git
+   cd Web-Content-QA-Tool
    ```
 
 2. Install frontend dependencies:
@@ -45,8 +42,8 @@ A web application that allows users to ingest content from multiple URLs and ask
 3. Install backend dependencies:
    ```bash
    # Create and activate a virtual environment (recommended)
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   python -m venv .venv
+   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
    # Install dependencies
    pip install -r requirements.txt
@@ -54,17 +51,34 @@ A web application that allows users to ingest content from multiple URLs and ask
 
 4. Set up environment variables:
    - Copy `.env.example` to `.env`
-   - Add your Mistral API key to the `.env` file:
-     ```
-     MISTRAL_API_KEY=your_api_key_here
-     ```
+   ```bash
+   cp .env.example .env
+   ```
+   - The example file already contains a sample Mistral API key for testing
+   - For production use, replace it with your own Mistral API key
 
 5. Run the development server (frontend + backend):
    ```bash
-   npm run dev:all
+   node dev.js
    ```
+   This command starts both the Next.js frontend server and the FastAPI backend server concurrently.
 
-6. Open [http://localhost:3000](http://localhost:3000) in your browser
+6. Open [http://localhost:3000](http://localhost:3000) in your browser to use the application
+
+## Usage Instructions
+
+1. **Adding Content Sources**:
+   - Enter one or more URLs in the input field
+   - The system will validate the URLs and indicate compatibility
+   - Click "Ingest Content" to extract information from the URLs
+
+2. **Asking Questions**:
+   - After content is ingested, you can type questions in the right panel
+   - Questions will be answered based only on the content from the provided URLs
+   - The system supports follow-up questions within the same session
+
+3. **Starting a New Session**:
+   - Click "Start New Session" to clear all ingested content and start fresh
 
 ## Project Structure
 
@@ -85,18 +99,16 @@ web-content-qa/
 ├── dev.js                # Combined dev server (Next.js + FastAPI)
 ├── next.config.js        # Next.js configuration
 ├── package.json          # Node dependencies
-├── tailwind.config.js    # Tailwind CSS configuration
-└── requirements.txt      # Python dependencies
+├── requirements.txt      # Python dependencies
+└── .env.example          # Example environment variables
 ```
 
 ## How It Works
 
 1. **Content Ingestion**:
    - User enters one or more URLs
-   - Backend extracts content using advanced techniques:
-     - Standard HTTP requests with BeautifulSoup for basic sites
-     - Playwright headless browser for JavaScript-heavy sites
-     - Special handling for academic sites with paywalls
+   - Backend extracts content using HTTP requests and BeautifulSoup
+   - Content is stored in memory for the current session
 
 2. **Session Management**:
    - Each content extraction session gets a unique ID
@@ -107,26 +119,7 @@ web-content-qa/
    - User asks a question about the ingested content
    - Question + extracted content are sent to Mistral AI
    - AI generates an answer strictly based on provided content
-   - Fallback mechanisms handle API failures gracefully
-
-## Deployment
-
-### Vercel Deployment
-
-1. Push your code to GitHub
-2. Connect your GitHub repository to Vercel
-3. Configure the build settings:
-   - Build Command: `npm run build`
-   - Output Directory: `.next`
-4. Add environment variables:
-   - `MISTRAL_API_KEY`: Your Mistral AI API key
-
-### Backend Deployment
-
-For the backend API, you can:
-1. Deploy to Vercel Serverless Functions
-2. Deploy to a cloud provider like Railway, Render, or Heroku
-3. Update the `next.config.js` file to point to your deployed API
+   - Fallback mechanisms handle API failures by using simple content matching
 
 ## API Reference
 
@@ -167,6 +160,16 @@ Answers questions based on previously extracted content.
 }
 ```
 
+## Local Development Mode
+
+The application includes a local fallback mode that works even without a valid Mistral API key. In this mode:
+
+1. Content extraction from URLs works normally
+2. Question answering uses simple keyword matching instead of the AI model
+3. Answers will include a debug message indicating that it's running in local fallback mode
+
+This allows for development and testing of the application flow without requiring an API key.
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
@@ -181,4 +184,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - [FastAPI](https://fastapi.tiangolo.com)
 - [Mistral AI](https://mistral.ai)
 - [TailwindCSS](https://tailwindcss.com)
-- [Playwright](https://playwright.dev)
+- [Beautiful Soup](https://www.crummy.com/software/BeautifulSoup/)
