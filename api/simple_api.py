@@ -109,8 +109,8 @@ async def answer_question(input_data: QuestionInput) -> Dict[str, str]:
     """
     Answer a question based on scraped content.
     
-    This simplified implementation uses keyword matching and fallback responses
-    when an external API is not available.
+    This implementation attempts to use the Mistral AI API first,
+    falling back to simple keyword matching if that fails.
     
     Args:
         input_data (QuestionInput): The question and session ID
@@ -134,8 +134,45 @@ async def answer_question(input_data: QuestionInput) -> Dict[str, str]:
     for url, text in content.items():
         context += f"Content from {url}:\n{text[:1000]}\n\n"  # Limit to first 1000 chars per URL
     
-    # Since the provided API key doesn't work, go straight to the fallback response
+    # Try to connect to Mistral API
     try:
+        logger.info("Attempting to connect to Mistral AI API")
+        mistral_api_key = os.environ.get("MISTRAL_API_KEY")
+        
+        if not mistral_api_key:
+            logger.error("MISTRAL_API_KEY environment variable not found!")
+            raise ValueError("Missing Mistral API key")
+            
+        logger.info(f"API Key available (first 4 chars): {mistral_api_key[:4]}...")
+        
+        # Import here to avoid errors if package isn't available
+        from mistralai.client import MistralClient
+        from mistralai.models.chat_completion import ChatMessage
+        
+        # Initialize Mistral client
+        client = MistralClient(api_key=mistral_api_key)
+        
+        # Create messages for the chat
+        messages = [
+            ChatMessage(role="system", content="You are a helpful assistant that answers questions based on the provided content. Stick to information from the provided context."),
+            ChatMessage(role="user", content=f"Here is some content to analyze:\n\n{context}\n\nBased on this content, please answer the following question: {question}")
+        ]
+        
+        # Call Mistral API
+        logger.info("Sending request to Mistral API")
+        chat_response = client.chat(
+            model="mistral-small-latest",
+            messages=messages,
+            max_tokens=500
+        )
+        
+        # Extract and return the answer
+        answer = chat_response.choices[0].message.content
+        return {"answer": answer}
+        
+    except Exception as e:
+        logger.error(f"Error using Mistral API: {str(e)}")
+        
         # Simple content-based response without calling Mistral API
         words = context.split()
         topics = ' '.join(words[:10]) if len(words) > 10 else context
@@ -143,24 +180,17 @@ async def answer_question(input_data: QuestionInput) -> Dict[str, str]:
         # Use simple keyword matching to provide relevant responses
         if "AI" in question or "artificial intelligence" in question.lower():
             return {
-                "answer": f"Based on the content, artificial intelligence is being used in various contexts including drug discovery and development. The content mentions how AI can help analyze large datasets and identify patterns that might be useful in pharmaceutical research."
+                "answer": f"Based on the content, artificial intelligence is being used in various contexts including drug discovery and development. The content mentions how AI can help analyze large datasets and identify patterns that might be useful in pharmaceutical research. [DEBUG: Mistral API error: {str(e)}]"
             }
         elif "drug" in question.lower():
             return {
-                "answer": f"The content discusses various aspects of drug discovery and pharmaceutical research. It appears to cover topics related to how modern approaches including AI and machine learning are being applied to develop new medications more efficiently."
+                "answer": f"The content discusses various aspects of drug discovery and pharmaceutical research. It appears to cover topics related to how modern approaches including AI and machine learning are being applied to develop new medications more efficiently. [DEBUG: Mistral API error: {str(e)}]"
             }
         else:
             # Basic fallback that mentions the content topic
             return {
-                "answer": f"Based on the extracted content, I can see information about {topics}... To provide a more detailed answer about '{question}', I would need to analyze the full content with a working AI model."
+                "answer": f"Based on the extracted content, I can see information about {topics}... To provide a more detailed answer about '{question}', I would need to analyze the full content with a working AI model. [DEBUG: Mistral API error: {str(e)}]"
             }
-    except Exception as e:
-        logger.error(f"Error generating response: {str(e)}")
-        
-        # Simple fallback response when everything fails
-        return {
-            "answer": f"I've extracted some content from the provided URL and can see it's about scientific research. However, I'm currently operating in simple mode without a working AI model connection, so I can only provide basic responses."
-        }
 
 @app.get("/api/health")
 def health_check() -> Dict[str, str]:
