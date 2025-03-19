@@ -2,6 +2,12 @@
 
 A web application that allows users to ingest content from multiple URLs and ask questions about that content. The application uses Next.js for the frontend, FastAPI for the backend, and Mistral AI for generating answers based only on the ingested content.
 
+## Screenshots
+
+![AiSensy Content Intelligence UI](screenshots/screenshot1.png)
+
+*AiSensy Content Intelligence - Q&A interface showing content ingestion from Wikipedia*
+
 ## Features
 
 - **Multi-URL Content Ingestion**: Input one or multiple webpage URLs to analyze
