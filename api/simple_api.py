@@ -154,8 +154,8 @@ async def answer_question(input_data: QuestionInput) -> Dict[str, str]:
         mistral_api_key = os.environ.get("MISTRAL_API_KEY")
         
         if not mistral_api_key:
-            logger.error("No Mistral API key available")
-            raise ValueError("Missing Mistral API key")
+            logger.warning("No Mistral API key available - running in local fallback mode")
+            raise ValueError("Missing Mistral API key - using fallback mode")
         
         # Log key length and prefix for debugging (don't log full key!)    
         logger.info(f"API Key length: {len(mistral_api_key)}, prefix: {mistral_api_key[:4]}...")
@@ -218,21 +218,26 @@ async def answer_question(input_data: QuestionInput) -> Dict[str, str]:
         words = context.split()
         topics = ' '.join(words[:10]) if len(words) > 10 else context
         
-        error_details = f"[DEBUG: Error type: {type(e).__name__}, Message: {str(e)}]"
+        # More descriptive fallback message for local testing
+        local_mode_message = ""
+        if isinstance(e, ValueError) and "Missing Mistral API key" in str(e):
+            local_mode_message = "Running in LOCAL FALLBACK MODE without Mistral API. "
+        
+        error_details = f"[DEBUG: {local_mode_message}Error type: {type(e).__name__}, Message: {str(e)}]"
         
         # Use simple keyword matching to provide relevant responses
         if "AI" in question or "artificial intelligence" in question.lower():
             return {
-                "answer": f"Based on the content, artificial intelligence is being used in various contexts including drug discovery and development. The content mentions how AI can help analyze large datasets and identify patterns that might be useful in pharmaceutical research. {error_details}"
+                "answer": f"{local_mode_message}Based on the content, artificial intelligence is being used in various contexts including drug discovery and development. The content mentions how AI can help analyze large datasets and identify patterns that might be useful in pharmaceutical research. {error_details}"
             }
         elif "drug" in question.lower():
             return {
-                "answer": f"The content discusses various aspects of drug discovery and pharmaceutical research. It appears to cover topics related to how modern approaches including AI and machine learning are being applied to develop new medications more efficiently. {error_details}"
+                "answer": f"{local_mode_message}The content discusses various aspects of drug discovery and pharmaceutical research. It appears to cover topics related to how modern approaches including AI and machine learning are being applied to develop new medications more efficiently. {error_details}"
             }
         else:
             # Basic fallback that mentions the content topic
             return {
-                "answer": f"Based on the extracted content, I can see information about {topics}... To provide a more detailed answer about '{question}', I would need to analyze the full content with a working AI model. {error_details}"
+                "answer": f"{local_mode_message}Based on the extracted content, I can see information about {topics}... To provide a more detailed answer about '{question}', I would need to analyze the full content with a working AI model. {error_details}"
             }
 
 @app.get("/api/health")
