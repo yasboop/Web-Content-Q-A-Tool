@@ -96,8 +96,9 @@ export default function Home() {
    */
   useEffect(() => {
     if (urls[0]) {
-      // Reset compatibility status when URL changes
+      // Reset compatibility status and error when URL changes
       setSiteCompatibility({ status: 'waiting', message: '' })
+      setError('') // Clear any previous error message when URL changes
       
       try {
         // Ensure URL has protocol, add https:// if missing
@@ -131,7 +132,7 @@ export default function Home() {
           })
         }
       } catch (e) {
-        // Invalid URL format - don't show any status until it's valid
+        // Don't show any error - just reset compatibility status
         if (urls[0].length > 10) {
           setSiteCompatibility({
             status: 'incompatible',
@@ -159,6 +160,11 @@ export default function Home() {
     const newUrls = [...urls]
     newUrls[index] = value
     setUrls(newUrls)
+    
+    // Clear error message when user edits URL
+    if (error) {
+      setError('')
+    }
   }
 
   /**
