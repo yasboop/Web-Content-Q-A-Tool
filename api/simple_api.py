@@ -110,7 +110,7 @@ async def answer_question(input_data: QuestionInput) -> Dict[str, str]:
     """
     Answer a question based on scraped content.
     
-    This implementation attempts to use the Mistral AI API first,
+    This implementation uses direct API calls to Mistral AI,
     falling back to simple keyword matching if that fails.
     
     Args:
@@ -135,93 +135,67 @@ async def answer_question(input_data: QuestionInput) -> Dict[str, str]:
     for url, text in content.items():
         context += f"Content from {url}:\n{text[:1000]}\n\n"  # Limit to first 1000 chars per URL
     
-    # Try to connect to Mistral API
+    # Try to connect to Mistral API directly
     try:
         logger.info("Attempting to connect to Mistral AI API")
         
-        # First try to get API key from environment variable
+        # Get API key from environment variable
         mistral_api_key = os.environ.get("MISTRAL_API_KEY")
         
-        # Fall back to a direct key if needed - ONLY FOR DEVELOPMENT!
-        # In production, always use environment variables for security
         if not mistral_api_key:
-            logger.warning("MISTRAL_API_KEY environment variable not found, trying direct key")
-            # You can set a fallback key here for testing only
-            # mistral_api_key = "your-api-key-here"  # NEVER commit this to Git!
-        
-        if not mistral_api_key:
-            logger.error("No Mistral API key available from any source!")
+            logger.error("No Mistral API key available")
             raise ValueError("Missing Mistral API key")
         
         # Log key length and prefix for debugging (don't log full key!)    
         logger.info(f"API Key length: {len(mistral_api_key)}, prefix: {mistral_api_key[:4]}...")
         
-        # Import here to avoid errors if package isn't available
-        try:
-            from mistralai.client import MistralClient
-            from mistralai.models.chat_completion import ChatMessage
-            logger.info("Successfully imported Mistral packages")
-        except ImportError as e:
-            logger.error(f"Failed to import Mistral packages: {str(e)}")
-            raise
+        # Direct API call using requests instead of the mistralai package
+        headers = {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "Authorization": f"Bearer {mistral_api_key}"
+        }
         
-        # Initialize Mistral client with full error handling
-        try:
-            logger.info("Initializing Mistral client")
-            client = MistralClient(api_key=mistral_api_key)
-            logger.info("Mistral client initialized successfully")
-        except Exception as e:
-            logger.error(f"Failed to initialize Mistral client: {str(e)}")
-            raise
+        # API endpoint
+        api_url = "https://api.mistral.ai/v1/chat/completions"
         
-        # Get available models for debugging
-        try:
-            logger.info("Listing available Mistral models")
-            models = client.list_models()
-            logger.info(f"Available models: {[model.id for model in models.data]}")
-        except Exception as e:
-            logger.error(f"Failed to list models: {str(e)}")
-            # Don't raise here, try to continue with a default model
+        # Call Mistral API with different models based on success/failure
+        models_to_try = ["mistral-large-latest", "mistral-medium", "mistral-small-latest"]
+        mistral_response = None
         
-        # Create messages for the chat
-        messages = [
-            ChatMessage(role="system", content="You are a helpful assistant that answers questions based on the provided content. Stick to information from the provided context."),
-            ChatMessage(role="user", content=f"Here is some content to analyze:\n\n{context}\n\nBased on this content, please answer the following question: {question}")
-        ]
-        
-        # Call Mistral API - use a more powerful model
-        logger.info("Sending request to Mistral API")
-        try:
-            # Try mistral-large model first (better capabilities)
-            chat_response = client.chat(
-                model="mistral-large-latest",  # Using a more powerful model
-                messages=messages,
-                max_tokens=500
-            )
-            logger.info("Received successful response from Mistral API (large model)")
-        except Exception as large_model_error:
-            logger.warning(f"Failed with large model: {str(large_model_error)}, trying medium model")
+        for model in models_to_try:
             try:
-                # Fall back to medium model
-                chat_response = client.chat(
-                    model="mistral-medium",
-                    messages=messages,
-                    max_tokens=500
-                )
-                logger.info("Received successful response from Mistral API (medium model)")
-            except Exception as medium_model_error:
-                logger.warning(f"Failed with medium model: {str(medium_model_error)}, trying small model")
-                # Fall back to small model as last resort
-                chat_response = client.chat(
-                    model="mistral-small-latest",
-                    messages=messages,
-                    max_tokens=500
-                )
-                logger.info("Received successful response from Mistral API (small model)")
+                logger.info(f"Trying model: {model}")
+                
+                # Prepare payload for the API call
+                payload = {
+                    "model": model,
+                    "messages": [
+                        {"role": "system", "content": "You are a helpful assistant that answers questions based on the provided content. Stick to information from the provided context."},
+                        {"role": "user", "content": f"Here is some content to analyze:\n\n{context}\n\nBased on this content, please answer the following question: {question}"}
+                    ],
+                    "max_tokens": 500
+                }
+                
+                # Make API call
+                response = requests.post(api_url, headers=headers, json=payload, timeout=30)
+                response.raise_for_status()  # Raise exception for error status codes
+                
+                mistral_response = response.json()
+                logger.info(f"Successful API call with model: {model}")
+                break  # Success, exit loop
+                
+            except Exception as model_error:
+                logger.warning(f"Failed with model {model}: {str(model_error)}")
+                if model == models_to_try[-1]:  # Last model in the list
+                    raise  # Re-raise the exception if all models failed
         
-        # Extract and return the answer
-        answer = chat_response.choices[0].message.content
-        return {"answer": answer}
+        # Extract the answer from the response
+        if mistral_response and "choices" in mistral_response and len(mistral_response["choices"]) > 0:
+            answer = mistral_response["choices"][0]["message"]["content"]
+            return {"answer": answer}
+        else:
+            raise ValueError("Invalid response structure from Mistral API")
         
     except Exception as e:
         # Detailed error logging
