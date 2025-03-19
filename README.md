@@ -4,7 +4,7 @@ A web application that allows users to ingest content from multiple URLs and ask
 
 ## Screenshots
 
-![AiSensy Content Intelligence UI](https://i.imgur.com/X9pn0d2.png)
+![AiSensy Content Intelligence UI](https://i.postimg.cc/xCs0bS7N/temp-Image-Vn-B4f-D.avif)
 
 *AiSensy Content Intelligence - Q&A interface showing content ingestion from Wikipedia*
 
