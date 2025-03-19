@@ -40,6 +40,10 @@ class UrlsInput(BaseModel):
     """
     urls: List[str]
     session_id: Optional[str] = None
+    
+    class Config:
+        # Disable URL validation to accept any string format
+        extra = "allow"
 
 class QuestionInput(BaseModel):
     """
@@ -79,6 +83,12 @@ async def scrape_urls(input_data: UrlsInput) -> Dict[str, Any]:
     # Extract content from each URL
     for url in input_data.urls:
         try:
+            # Add http:// prefix if missing
+            if not url.startswith('http://') and not url.startswith('https://'):
+                url = 'https://' + url
+                
+            logger.info(f"Attempting to extract content from: {url}")
+            
             # Basic content extraction
             headers = {
                 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
@@ -93,6 +103,7 @@ async def scrape_urls(input_data: UrlsInput) -> Dict[str, Any]:
             
             # Store the content
             content_store[session_id][url] = content
+            logger.info(f"Successfully extracted content from: {url}")
             
         except Exception as e:
             logger.error(f"Error extracting content from {url}: {str(e)}")
